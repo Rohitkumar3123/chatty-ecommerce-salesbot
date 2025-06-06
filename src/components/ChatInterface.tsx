@@ -1,145 +1,223 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { User } from '@/types/User';
-import { Send, RotateCcw, LogOut, User as UserIcon } from 'lucide-react';
-import ChatMessage from '@/components/ChatMessage';
-import ProductCard from '@/components/ProductCard';
-import { searchProducts, getCategories, getBrands } from '@/data/mockProducts';
-import { Product } from '@/types/Product';
+import { LogOut, Send, RotateCcw, Search, Filter } from 'lucide-react';
+import ChatMessage from './ChatMessage';
+import ProductCard from './ProductCard';
+import CartSidebar from './CartSidebar';
 import { processChatMessage } from '@/utils/chatProcessor';
-
-interface ChatInterfaceProps {
-  user: User;
-  onLogout: () => void;
-}
+import { searchProducts, getCategories, getBrands } from '@/data/mockProducts';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export interface Message {
   id: string;
   text: string;
   isUser: boolean;
   timestamp: string;
-  products?: Product[];
+  products?: any[];
+}
+
+interface ChatInterfaceProps {
+  user: User;
+  onLogout: () => void;
 }
 
 const ChatInterface = ({ user, onLogout }: ChatInterfaceProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedBrand, setSelectedBrand] = useState<string>('');
+  const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 5000 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const categories = getCategories();
+  const brands = getBrands();
+
   useEffect(() => {
-    // Load chat history from localStorage
-    const savedHistory = localStorage.getItem('chat_history');
-    if (savedHistory) {
-      setMessages(JSON.parse(savedHistory));
+    const savedMessages = localStorage.getItem('chat_history');
+    if (savedMessages) {
+      setMessages(JSON.parse(savedMessages));
     } else {
-      // Welcome message
       const welcomeMessage: Message = {
         id: '1',
-        text: `Welcome ${user.name}! I'm your personal shopping assistant. I can help you find electronics, compare products, and answer questions about our inventory. Try asking me something like "Show me laptops under $1500" or "What smartphones do you have?"`,
+        text: `Welcome ${user.name}! I'm your shopping assistant. I can help you find products, answer questions about our inventory, and assist with your shopping needs. Try asking me something like "Show me laptops" or "Find Apple products"!`,
         isUser: false,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
       setMessages([welcomeMessage]);
     }
-  }, [user.name]);
+  }, [user]);
 
   useEffect(() => {
-    // Save chat history to localStorage
-    if (messages.length > 0) {
-      localStorage.setItem('chat_history', JSON.stringify(messages));
-    }
+    localStorage.setItem('chat_history', JSON.stringify(messages));
   }, [messages]);
 
   useEffect(() => {
-    // Scroll to bottom when new messages are added
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim()) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: inputValue.trim(),
+      text: inputValue,
       isUser: true,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
 
-    // Process the message and get response
-    const response = await processChatMessage(inputValue.trim());
-    
-    const botMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      text: response.text,
-      isUser: false,
-      timestamp: new Date().toISOString(),
-      products: response.products
-    };
+    try {
+      const response = await processChatMessage(inputValue);
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: response.text,
+        isUser: false,
+        timestamp: new Date().toISOString(),
+        products: response.products,
+      };
 
-    setMessages(prev => [...prev, botMessage]);
-    setIsLoading(false);
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: 'Sorry, I encountered an error. Please try again.',
+        isUser: false,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
+  const handleSearch = () => {
+    const filters = {
+      category: selectedCategory || undefined,
+      brand: selectedBrand || undefined,
+      minPrice: priceRange.min,
+      maxPrice: priceRange.max,
+    };
+
+    const products = searchProducts(searchQuery, filters);
+    
+    const searchMessage: Message = {
+      id: Date.now().toString(),
+      text: searchQuery ? `Search results for "${searchQuery}"` : 'Here are the filtered products:',
+      isUser: false,
+      timestamp: new Date().toISOString(),
+      products: products,
+    };
+
+    setMessages(prev => [...prev, searchMessage]);
   };
 
   const resetChat = () => {
     const welcomeMessage: Message = {
       id: Date.now().toString(),
-      text: `Chat reset! How can I help you find the perfect tech product today?`,
+      text: `Chat reset! How can I help you today, ${user.name}?`,
       isUser: false,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
     setMessages([welcomeMessage]);
-    localStorage.removeItem('chat_history');
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('');
+    setSelectedBrand('');
+    setPriceRange({ min: 0, max: 5000 });
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="bg-white border-b shadow-sm p-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="bg-primary text-primary-foreground rounded-full p-2">
-              <UserIcon className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="font-semibold">{user.name}</h2>
-              <p className="text-sm text-muted-foreground">{user.email}</p>
-            </div>
+      <div className="border-b bg-card p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-primary">E-Commerce Assistant</h1>
+            <p className="text-sm text-muted-foreground">
+              Logged in as {user.name} • {new Date(user.loginTime).toLocaleString()}
+            </p>
           </div>
           <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm" onClick={resetChat}>
+            <CartSidebar />
+            <Button variant="outline" onClick={resetChat}>
               <RotateCcw className="h-4 w-4 mr-2" />
               Reset Chat
             </Button>
-            <Button variant="outline" size="sm" onClick={onLogout}>
+            <Button variant="outline" onClick={onLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
             </Button>
           </div>
         </div>
-      </header>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="border-b bg-card p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-64">
+            <Input
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            />
+          </div>
+          
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Categories</SelectItem>
+              {categories.map(category => (
+                <SelectItem key={category} value={category}>{category}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Brand" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Brands</SelectItem>
+              {brands.map(brand => (
+                <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button onClick={handleSearch}>
+            <Search className="h-4 w-4 mr-2" />
+            Search
+          </Button>
+
+          <Button variant="outline" onClick={clearFilters}>
+            <Filter className="h-4 w-4 mr-2" />
+            Clear
+          </Button>
+        </div>
+      </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-6xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
-          <div key={message.id} className="animate-fade-in">
+          <div key={message.id} className="space-y-4">
             <ChatMessage message={message} />
             {message.products && message.products.length > 0 && (
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-12">
                 {message.products.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
@@ -149,47 +227,30 @@ const ChatInterface = ({ user, onLogout }: ChatInterfaceProps) => {
         ))}
         {isLoading && (
           <div className="flex justify-start">
-            <Card className="p-4 bg-muted">
+            <div className="bg-muted rounded-lg p-4 max-w-xs">
               <div className="flex items-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                <span className="text-sm">Assistant is typing...</span>
+                <span className="text-sm">Thinking...</span>
               </div>
-            </Card>
+            </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="border-t bg-white p-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex space-x-2">
-            <Input
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask me about products, compare items, or get recommendations..."
-              className="flex-1"
-              disabled={isLoading}
-            />
-            <Button 
-              onClick={handleSendMessage} 
-              disabled={!inputValue.trim() || isLoading}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => setInputValue("Show me laptops under $1500")}>
-              Laptops under $1500
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setInputValue("What smartphones do you have?")}>
-              Smartphones
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setInputValue("Show me audio products")}>
-              Audio Products
-            </Button>
-          </div>
+      {/* Chat Input */}
+      <div className="border-t bg-card p-4">
+        <div className="flex space-x-2">
+          <Input
+            placeholder="Type your message..."
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            disabled={isLoading}
+          />
+          <Button onClick={handleSendMessage} disabled={isLoading || !inputValue.trim()}>
+            <Send className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

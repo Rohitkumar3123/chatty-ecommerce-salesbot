@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Product } from '@/types/Product';
 import { Star, ShoppingCart, X } from 'lucide-react';
+import { useCart } from '@/contexts/CartContext';
 
 interface ProductModalProps {
   product: Product;
@@ -12,6 +13,12 @@ interface ProductModalProps {
 }
 
 const ProductModal = ({ product, isOpen, onClose }: ProductModalProps) => {
+  const { addToCart } = useCart();
+
+  const handleAddToCart = () => {
+    addToCart(product.id, product.name, product.price, product.image);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -69,6 +76,7 @@ const ProductModal = ({ product, isOpen, onClose }: ProductModalProps) => {
                 className="flex-1" 
                 disabled={!product.inStock}
                 size="lg"
+                onClick={handleAddToCart}
               >
                 <ShoppingCart className="h-5 w-5 mr-2" />
                 {product.inStock ? 'Add to Cart' : 'Out of Stock'}

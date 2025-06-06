@@ -6,6 +6,7 @@ import { Product } from '@/types/Product';
 import { Star, ShoppingCart, Eye } from 'lucide-react';
 import { useState } from 'react';
 import ProductModal from '@/components/ProductModal';
+import { useCart } from '@/contexts/CartContext';
 
 interface ProductCardProps {
   product: Product;
@@ -13,6 +14,11 @@ interface ProductCardProps {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const [showModal, setShowModal] = useState(false);
+  const { addToCart } = useCart();
+
+  const handleAddToCart = () => {
+    addToCart(product.id, product.name, product.price, product.image);
+  };
 
   return (
     <>
@@ -66,6 +72,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
                 size="sm" 
                 className="flex-1"
                 disabled={!product.inStock}
+                onClick={handleAddToCart}
               >
                 <ShoppingCart className="h-4 w-4 mr-1" />
                 {product.inStock ? 'Add to Cart' : 'Unavailable'}
