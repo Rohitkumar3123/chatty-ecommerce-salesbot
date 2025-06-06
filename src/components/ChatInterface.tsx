@@ -31,8 +31,8 @@ const ChatInterface = ({ user, onLogout }: ChatInterfaceProps) => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [selectedBrand, setSelectedBrand] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({ min: 0, max: 5000 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -102,8 +102,8 @@ const ChatInterface = ({ user, onLogout }: ChatInterfaceProps) => {
 
   const handleSearch = () => {
     const filters = {
-      category: selectedCategory || undefined,
-      brand: selectedBrand || undefined,
+      category: selectedCategory === 'all' ? undefined : selectedCategory,
+      brand: selectedBrand === 'all' ? undefined : selectedBrand,
       minPrice: priceRange.min,
       maxPrice: priceRange.max,
     };
@@ -133,8 +133,8 @@ const ChatInterface = ({ user, onLogout }: ChatInterfaceProps) => {
 
   const clearFilters = () => {
     setSearchQuery('');
-    setSelectedCategory('');
-    setSelectedBrand('');
+    setSelectedCategory('all');
+    setSelectedBrand('all');
     setPriceRange({ min: 0, max: 5000 });
   };
 
@@ -180,7 +180,7 @@ const ChatInterface = ({ user, onLogout }: ChatInterfaceProps) => {
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Categories</SelectItem>
+              <SelectItem value="all">All Categories</SelectItem>
               {categories.map(category => (
                 <SelectItem key={category} value={category}>{category}</SelectItem>
               ))}
@@ -192,7 +192,7 @@ const ChatInterface = ({ user, onLogout }: ChatInterfaceProps) => {
               <SelectValue placeholder="Brand" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Brands</SelectItem>
+              <SelectItem value="all">All Brands</SelectItem>
               {brands.map(brand => (
                 <SelectItem key={brand} value={brand}>{brand}</SelectItem>
               ))}
